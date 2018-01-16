@@ -126,7 +126,7 @@ const consume = (expectedType, expectedValue) => {
   throw new Error(`Expected token type ${expectedType} but got ${token.type}`)
 }
 
-const objectCallNode = (object, property) => {
+const objectNode = (object, property) => {
   return {
     type: 'Object',
     object: object.value,
@@ -469,15 +469,15 @@ const parseObject = () => {
   consume('dot')
   if (isId(tokens.peek())) {
     if (isLParen(tokens.peek(1))) {
-      return objectCallNode(object, parseCall())
+      return objectNode(object, parseCall())
     }
 
     if (isDot(tokens.peek(1))) {
-      return objectCallNode(object, parseObject())
+      return objectNode(object, parseObject())
     }
 
     const property = consume('id')
-    return objectCallNode(object, property)
+    return objectNode(object, property)
   }
 }
 
