@@ -1,0 +1,3 @@
+# A SMALL JAVASCRIPT INTERPRETER WRITTEN IN JAVASCRIPT
+
+**Description**: Just having fun...
