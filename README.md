@@ -1,3 +1,3 @@
-# A SMALL JAVASCRIPT INTERPRETER WRITTEN IN JAVASCRIPT
+# A small javascript interpreter written in javascript
 
 **Description**: Just having fun...
