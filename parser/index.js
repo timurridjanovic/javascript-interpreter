@@ -498,7 +498,7 @@ const parseExpression = () => {
       return parseMathExpression(expression)
     }
   }
-  console.log('TOKEN: ', tokens.peek())
+
   throw new Error(`SyntaxError: Unexpected token ${tokens.peek().value}`)
 }
 
