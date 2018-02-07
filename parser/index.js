@@ -66,8 +66,28 @@ const isRCurlyBracket = token => {
   return token.type === 'rcurly_bracket'
 }
 
+const isNot = token => {
+  return token.type === 'operator' &&  token.value === '!'
+}
+
 const isFunction = token => {
   return token.type === 'function'
+}
+
+const isBoolean = token => {
+  return token.type === 'boolean'
+}
+
+const isFor = token => {
+  return token.type === 'for'
+}
+
+const isIf = token => {
+  return token.type === 'if'
+}
+
+const isElse = token => {
+  return token.type === 'else'
 }
 
 const isReturn = token => {
@@ -106,7 +126,8 @@ const isMathExpression = (token, parenStack) => {
   if ((!isRParen(token) && !isSemiColon(token) &&
     !isFunction(token) && !isComma(token) &&
     !isRCurlyBracket(token) && !isVar(token) &&
-    (!isId(token) || !isEqual(tokens.peek(1)))) || parenStack.length > 0) {
+    (!isId(token) || !isEqual(tokens.peek(1))) &&
+    !isIf(token) && token !== 'EOF') || parenStack.length > 0) {
     return true
   }
 
@@ -162,6 +183,23 @@ const returnExpressionNode = expression => {
   return { type: 'return', expression }
 }
 
+const forNode = (expressions, body) => {
+  return { type: 'for', expressions, body }
+}
+
+const ifElseNode = (condition, body, elseIf, elseBody) => {
+  const expression = { type: 'if', condition, body }
+  if (elseIf.length > 0) {
+    expression.elseIf = elseIf
+  }
+
+  if (elseBody) {
+    expression.elseBody = elseBody
+  }
+
+  return expression
+}
+
 const varAssignmentNode = (name, expression, isGlobal) => {
   if (isGlobal) {
     return { type: 'assignment', var: name, expression, isGlobal }
@@ -174,8 +212,17 @@ const arrayNode = elements => {
   return { type: 'array', elements }
 }
 
+const notNode = expression => {
+  return { type: 'not', expression }
+}
+
 const objectLiteralNode = dict => {
   return { type: 'dict', dict }
+}
+
+const parseBoolean = () => {
+  const value = consume('boolean').value
+  return { type: 'boolean', value }
 }
 
 const parseArgNames = () => {
@@ -246,7 +293,7 @@ const parseMathExpression = (node) => {
       expressionStack.push(parseObjectLiteral())
     } else {
       const token = consume('any')
-      if (token.type === 'number' || token.type === 'string') {
+      if (token.type === 'number' || token.type === 'string' || token.type === 'boolean') {
         expressionStack.push(token)
       } else if (token.type === 'operator') {
         let stackTop = operatorStack[operatorStack.length - 1]
@@ -297,11 +344,61 @@ const parseMathExpression = (node) => {
 
 const parseReturnExpression = () => {
   consume('return')
+  if (isSemiColon(tokens.peek())) {
+    consume('semicolon')
+  }
+
+  if (isRCurlyBracket(tokens.peek())) {
+    return returnExpressionNode()
+  }
+
   const expression = parseExpression()
   if (isSemiColon(tokens.peek())) {
     consume('semicolon')
   }
   return returnExpressionNode(expression)
+}
+
+const parseFor = () => {
+  consume('for')
+  consume('lparen')
+  let expressions = []
+  expressions.push(parseVarAssignment())
+  expressions.push(parseExpression())
+  if (isSemiColon(tokens.peek())) {
+    consume('semicolon')
+  }
+  expressions.push(parseExpression())
+  consume('rparen')
+  consume('lcurly_bracket')
+  const body = parseStatements()
+  return forNode(expressions, body)
+}
+
+const parseIfElse = () => {
+  consume('if')
+  consume('lparen')
+  const condition = parseExpression()
+  consume('rparen')
+  consume('lcurly_bracket')
+  const body = parseStatements()
+  consume('rcurly_bracket')
+  const elseIf = []
+  while (isElse(tokens.peek()) && isIf(tokens.peek(1))) {
+    consume('else')
+    const elseIfExpression = parseIfElse()
+    elseIf.push(elseIfExpression)
+  }
+
+  let elseBody
+  if (isElse(tokens.peek())) {
+    consume('else')
+    consume('lcurly_bracket')
+    elseBody = parseStatements()
+    consume('rcurly_bracket')
+  }
+
+  return ifElseNode(condition, body, elseIf, elseBody)
 }
 
 const parseVarAssignment = (options = { isGlobal: false }) => {
@@ -320,6 +417,10 @@ const parseVarAssignment = (options = { isGlobal: false }) => {
 }
 
 const parseExpression = () => {
+  if (isBoolean(tokens.peek())) {
+    return parseBoolean()
+  }
+
   if (isFunction(tokens.peek())) {
     return parseFunction()
   }
@@ -329,11 +430,19 @@ const parseExpression = () => {
   }
 
   if (isId(tokens.peek()) && isDot(tokens.peek(1))) {
-    return parseObject()
+    const object = parseObject()
+    if (isOperator(tokens.peek())) {
+      return parseMathExpression(object)
+    }
+    return object
   }
 
   if (isId(tokens.peek()) && isLParen(tokens.peek(1))) {
-    return parseCall()
+    const call = parseCall()
+    if (isOperator(tokens.peek())) {
+      return parseMathExpression(call)
+    }
+    return call
   }
 
   if (isId(tokens.peek()) && isOperator(tokens.peek(1))) {
@@ -373,13 +482,23 @@ const parseExpression = () => {
   }
 
   if (isLSquareBracket(tokens.peek())) {
-    return parseArray()
+    const array = parseArray()
+    if (isOperator(tokens.peek())) {
+      return parseMathExpression(array)
+    }
   }
 
   if (isLCurlyBracket(tokens.peek())) {
     return parseObjectLiteral()
   }
 
+  if (isNot(tokens.peek())) {
+    const expression = parseNotExpression()
+    if (isOperator(tokens.peek())) {
+      return parseMathExpression(expression)
+    }
+  }
+  console.log('TOKEN: ', tokens.peek())
   throw new Error(`SyntaxError: Unexpected token ${tokens.peek().value}`)
 }
 
@@ -411,12 +530,35 @@ const parseArray = () => {
   }
 
   consume('rsquare_bracket')
-
-  if (isOperator(tokens.peek())) {
-    return parseMathExpression(arrayNode(elements))
-  }
-
   return arrayNode(elements)
+}
+
+const parseNotExpression = () => {
+  consume('operator')
+  if (isId(tokens.peek()) && isDot(tokens.peek(1))) {
+    const object = parseObject()
+    return notNode(object)
+  } else if (isId(tokens.peek()) && isLParen(tokens.peek(1))) {
+    const call = parseCall()
+    return notNode(call)
+  } else if (isLParen(tokens.peek())) {
+    consume('lparen')
+    const expression = parseMathExpression()
+    consume('rparen')
+    return notNode(expression)
+  } else if (isId(tokens.peek())) {
+    return notNode(parseVariable())
+  } else if (isNumber(tokens.peek())) {
+    return notNode(parseNumber())
+  } else if (isBoolean(tokens.peek())) {
+    return notNode(parseBoolean())
+  } else if (isString(tokens.peek())) {
+    return notNode(parseString())
+  } else if (isLSquareBracket(tokens.peek())) {
+    return notNode(parseArray())
+  } else if (isLCurlyBracket(tokens.peek())) {
+    return notNode(parseObjectLiteral())
+  }
 }
 
 const parseObjectLiteral = () => {
@@ -457,10 +599,6 @@ const parseObjectLiteral = () => {
 const parseCall = () => {
   const token = consume('id')
   const args = parseArgsExpressions()
-  if (isOperator(tokens.peek())) {
-    return parseMathExpression(callNode(token, args))
-  }
-
   return callNode(token, args)
 }
 
@@ -490,6 +628,10 @@ const parseStatements = () => {
       statements.push(parseVarAssignment())
     } else if (isId(tokens.peek()) && isEqual(tokens.peek(1))) {
       statements.push(parseVarAssignment({ isGlobal: true }))
+    } else if (isIf(tokens.peek())) {
+      statements.push(parseIfElse())
+    } else if (isFor(tokens.peek())) {
+      statements.push(parseFor())
     } else if (tokens.peek()) {
       statements.push(parseExpression())
       if (isSemiColon(tokens.peek())) {

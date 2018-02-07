@@ -73,12 +73,35 @@ const addToken = (obj, char, type) => {
   }
   if (token.type === 'operator') {
     token.associativity = 'left'
-    if (token.value === '+' || token.value === '-') {
-      token.precedence = 2
+    if (token.value === '++' || token.value === '--') {
+      token.precedence = 17
+    } else if (token.value === '!') {
+      token.precedence = 16
+      token.associativity = 'right'
     } else if (token.value === '*' || token.value === '/') {
+      token.precedence = 14
+    } else if (token.value === '+' || token.value === '-') {
+      token.precedence = 13
+    } else if (
+      token.value === '<' || token.value == '>' ||
+      token.value === '<=' || token.value === '>='
+    ) {
+      token.precedence = 11
+    } else if (
+      token.value === '==' || token.value === '===' ||
+      token.value === '!=' || token.value === '!=='
+    ) {
+      token.precedence = 10
+    } else if (token.value === '&&') {
+      token.precedence = 6
+    } else if (token.value === '||') {
+      token.precedence = 5
+    } else if (
+      token.value === '=' || token.value === '+=' ||
+      token.value === '-=' || token.value === '*=' ||
+      token.value === '/='
+    ) {
       token.precedence = 3
-    } else {
-      token.precedence = 2
     }
   }
   return {

@@ -2,23 +2,13 @@ const tokenizer = require('./tokenizer')
 const parser = require('./parser')
 
 const js = `
-  var books = [
-    {
-      author: 'timur',
-      price: 100
-    },
-    {
-      author: 'ogden',
-      price: 100
-    }
-  ]
+function add(a, b) {
+  return a + b;
+}
 
-  var newBooks = books.map(function(book) {
-    return {
-      author: book.author
-    }
-  })
+add(100, 10)
 `
 
 const ast = parser(tokenizer(js))
 console.log('AST: ', JSON.stringify(ast, null, 2))
+
